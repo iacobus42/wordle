@@ -1,7 +1,7 @@
 library(tidyverse)
 library(parallel)
 
-source("~/Desktop/word-list.R")
+source("~/wordle/word-list.R")
 
 play_game <- function(answer, guess, candidates = allowed_answers) {
   first_guess <- guess
@@ -99,16 +99,22 @@ reduce_non_matches <- function(candidates, knowledge) {
   return(candidates)
 }
 
-cluster <- makeCluster(4)
+cluster <- makeCluster(12)
 clusterEvalQ(cluster, library(tidyverse))
 clusterExport(cluster,
               c("play_game", "play_round", "update_knowledge",
                 "reduce_non_matches"))
 
+# allowed_guesses only contains guesses that are allowed but that are not 
+# answers, expand that here
+allowed_guesses <- c(allowed_guesses, allowed_answers)
+
+# loop over all the allowed answers (2,315) and evaluate, in parallel using
+# cluster `cluster`, the 12,972 allowed guesses
 i <- 1
-results <- vector("list", length(allowed_answers))
+results <- vector("list", length(allowed_guesses))
 p <- progress::progress_bar$new(
-  total = length(allowed_answers),
+  total = length(allowed_guesses),
   format = "[:bar] :percent in :elapsed with :eta remaining"
 )
 for (guess in allowed_guesses) {
@@ -122,13 +128,6 @@ for (guess in allowed_guesses) {
   i <- i + 1
   p$tick()
 }
-
-lapply(
-  allowed_answers[1:2],
-  play_game,
-  guess = allowed_answers,
-  candidates = allowed_answers
-)
 
 results <- results %>%
   bind_rows()
